@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# xcodegen-generated project (source of truth is project.yml; run `xcodegen generate`)
+Echo.xcodeproj/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# WhisperKit / CoreML model cache (대용량 — 커밋 금지). 루트 한정: Echo/Models/ 소스는 추적.
+/Models/
+*.mlmodelc/
+*.mlpackage/
+
+# 녹음/전사 산출물
+*.caf
+*.m4a
+*.wav
+*.mp3
+Recordings/
+
+# 테스트용 개인 음성 (대용량 — 커밋 금지; 통합 테스트는 로컬에 있을 때만 실행)
+test-assets/

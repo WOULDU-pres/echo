@@ -1,0 +1,107 @@
+name: Echo
+
+options:
+  bundleIdPrefix: com.hwjoo
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+
+packages:
+  # WhisperKit tags are v-prefixed (e.g. v0.18.0). SPM normalizes the semantic
+  # version, so `versionRange` resolves to the highest 0.x tag (latest stable in
+  # the single-package `whisperkit` line, currently v0.18.0). The 1.0.0 release
+  # restructured the package into `argmax-oss-swift` with extra products; staying
+  # in 0.x keeps the layout the scaffold's API was written against. The
+  # WhisperKitConfig(model:) / transcribe(audioPath:decodeOptions:) /
+  # TranscriptionResult.segments API used by WhisperKitBatchTranscriber is
+  # identical across this range.
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    minVersion: 0.16.0
+    maxVersion: 1.0.0
+  # 화자 구분(diarization): pyannote CoreML 포팅, 온디바이스/ANE, Apache-2.0.
+  # v0.9.1을 vendor/FluidAudio 로 로컬 vendoring(Streaming ASR의 Swift 6 strict-concurrency
+  # 컴파일 버그 때문에 Package.swift에서 해당 타깃만 Swift 5 모드로 패치). 업스트림 수정 시 url로 복귀.
+  FluidAudio:
+    path: vendor/FluidAudio
+
+targets:
+  Echo:
+    type: application
+    platform: macOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: Echo
+        # Info.plist / entitlements are referenced explicitly below; exclude the
+        # raw plist files from the source phase so they are not also copied as
+        # bundle resources (which would produce duplicate-resource build errors).
+        excludes:
+          - "Resources/Info.plist"
+          - "Resources/Echo.entitlements"
+    dependencies:
+      - package: WhisperKit
+        product: WhisperKit
+      - package: FluidAudio
+        product: FluidAudio
+    info:
+      path: Echo/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Echo
+        CFBundleName: Echo
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "15.0"
+        NSMicrophoneUsageDescription: 녹음 시 마이크 입력을 캡처합니다.
+        NSAudioCaptureUsageDescription: 시스템에서 재생되는 소리를 녹음합니다.
+        NSSpeechRecognitionUsageDescription: 실시간 미리보기 전사를 위해 온디바이스 음성 인식을 사용합니다.
+        NSHighResolutionCapable: true
+        LSApplicationCategoryType: public.app-category.productivity
+    entitlements:
+      path: Echo/Resources/Echo.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hwjoo.echo
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        # 앱 아이콘: Echo/Resources/Assets.xcassets/AppIcon.appiconset (sources: Echo 에 포함)
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+  EchoTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: EchoTests
+    dependencies:
+      - target: Echo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hwjoo.echoTests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+
+schemes:
+  Echo:
+    build:
+      targets:
+        Echo: all
+        EchoTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - EchoTests

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Echo | Hyper-Structured Stream</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @font-face {
+            font-family: 'Pretendard';
+            src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+        }
+
+        :root {
+            --sidebar-width: 260px;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Inter', sans-serif;
+            background-color: #faf9fe;
+            color: #1a1b1f;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+
+        .grid-line-x {
+            height: 0.5px;
+            background-color: rgba(113, 119, 134, 0.15);
+            width: 100%;
+        }
+
+        .grid-line-y {
+            width: 0.5px;
+            background-color: rgba(113, 119, 134, 0.15);
+            height: 100%;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e3e2e7;
+            border-radius: 10px;
+        }
+
+        .recording-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .4; }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-container": "#fffbff",
+                        "secondary-container": "#e2241f",
+                        "on-background": "#1a1b1f",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-on-surface": "#f1f0f5",
+                        "on-error": "#ffffff",
+                        "tertiary-container": "#6664e4",
+                        "on-secondary-fixed-variant": "#930005",
+                        "surface-container-low": "#f4f3f8",
+                        "surface": "#faf9fe",
+                        "background": "#faf9fe",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed-variant": "#004493",
+                        "inverse-surface": "#2f3034",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed": "#ffdad5",
+                        "on-primary-fixed": "#001a41",
+                        "on-primary": "#ffffff",
+                        "surface-bright": "#faf9fe",
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "surface-container": "#eeedf3",
+                        "on-surface-variant": "#414755",
+                        "primary-fixed": "#d8e2ff",
+                        "tertiary-fixed": "#e2dfff",
+                        "primary-container": "#0070eb",
+                        "on-tertiary-container": "#fffbff",
+                        "primary": "#0058bc",
+                        "on-secondary-fixed": "#410001",
+                        "surface-tint": "#005bc1",
+                        "on-tertiary-fixed": "#0c006a",
+                        "inverse-primary": "#adc6ff",
+                        "tertiary": "#4c4aca",
+                        "on-tertiary-fixed-variant": "#3631b4",
+                        "surface-container-highest": "#e3e2e7",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-primary-container": "#fefcff",
+                        "tertiary-fixed-dim": "#c2c1ff",
+                        "on-error-container": "#93000a",
+                        "secondary": "#bc000a",
+                        "surface-container-high": "#e9e7ed",
+                        "surface-dim": "#dad9df",
+                        "surface-variant": "#e3e2e7",
+                        "secondary-fixed-dim": "#ffb4aa",
+                        "on-surface": "#1a1b1f",
+                        "outline-variant": "#c1c6d7",
+                        "outline": "#717786"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "xs": "4px",
+                        "xl": "32px",
+                        "sm": "12px",
+                        "lg": "24px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "body-ui": ["Pretendard", "Inter"],
+                        "mono-data": ["JetBrains Mono"],
+                        "display-lg": ["Pretendard", "Inter"],
+                        "title-sm": ["Pretendard", "Inter"],
+                        "label-caps": ["Pretendard", "Inter"],
+                        "body-reading": ["Pretendard", "Inter"],
+                        "headline-md": ["Pretendard", "Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background overflow-hidden">
+<!-- SideNavBar (Authority: JSON Implementation) -->
+<nav class="w-[260px] h-screen fixed left-0 top-0 bg-surface/70 backdrop-blur-3xl border-r border-outline-variant/10 flex flex-col p-lg gap-sm z-50">
+<div class="mb-xl">
+<div class="flex items-center gap-md">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-[20px]" data-icon="mic">mic</span>
+</div>
+<div>
+<h1 class="font-display-lg text-[20px] font-bold text-primary leading-none">Echo</h1>
+<p class="font-body-ui text-[11px] text-on-surface-variant opacity-60">Audio Intelligence</p>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-xs flex-1">
+<a class="flex items-center gap-md px-md py-sm bg-primary text-on-primary rounded-lg transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="mic">mic</span>
+<span class="font-body-ui text-body-ui">모든 녹음</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-on-surface/5 rounded-lg transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="description">description</span>
+<span class="font-body-ui text-body-ui">전사 기록</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-on-surface/5 rounded-lg transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="star">star</span>
+<span class="font-body-ui text-body-ui">즐겨찾기</span>
+</a>
+<div class="mt-auto">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-on-surface/5 rounded-lg transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span class="font-body-ui text-body-ui">설정</span>
+</a>
+</div>
+</div>
+<div class="mt-xl pt-lg border-t border-outline-variant/10 flex items-center gap-md">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKTPvwtkQrN6lsT2hq4afO-o92nQSakPJ815Vt5vn8YmYhBHmqBkJmuLPKi4e1CxW11q_e9Cw2S50N8yh9Q4sSvk0eATb0sLpr2Pvs8mlsX7Cn_5mX8XMsmRdJBZmz8qd7yWU2BFAb4VD51nTp0dm1kO_hgInkTrQUlrzbJO_FC75MHjslJmqQ1y3RdFFwHF6CmCo3QLwnZ82gzYji6Hm2wLlnY6wvVmUv9_dVfLUdKqNadXy-r7NPjsT5nd3-qeqx6bxFj2VzE-dm"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-ui text-[13px] font-bold">사용자 계정</span>
+<span class="font-body-ui text-[11px] text-on-surface-variant">Premium Plan</span>
+</div>
+</div>
+</nav>
+<!-- TopAppBar (Authority: JSON Implementation) -->
+<header class="flex justify-between items-center h-16 px-lg ml-[260px] fixed top-0 right-0 left-0 bg-background/80 backdrop-blur-md z-40 border-b border-outline-variant/10">
+<div class="flex items-center gap-xl">
+<h2 class="font-headline-md text-headline-md font-bold text-on-background">전사 스트림</h2>
+<div class="flex items-center gap-md bg-surface-container-low px-md py-xs rounded border border-outline-variant/20">
+<span class="w-2 h-2 rounded-full bg-secondary recording-pulse"></span>
+<span class="font-mono-data text-label-caps text-secondary">REC 00:42:15</span>
+</div>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-sm bg-surface-container-low px-md py-xs rounded w-[320px]">
+<span class="material-symbols-outlined text-[18px] text-outline" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-ui w-full placeholder:text-outline/50" placeholder="검색어 입력..." type="text"/>
+</div>
+<div class="flex items-center gap-sm">
+<button class="p-xs text-on-surface-variant hover:text-primary transition-opacity" title="그리드 뷰">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+</button>
+<button class="p-xs text-on-surface-variant hover:text-primary transition-opacity" title="필터">
+<span class="material-symbols-outlined" data-icon="filter_list">filter_list</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[260px] pt-16 h-screen flex flex-col bg-surface-container-lowest">
+<!-- Status & Stats Bar (Data Dense) -->
+<div class="h-10 flex items-center border-b border-outline-variant/10 px-lg bg-surface gap-xl overflow-x-auto whitespace-nowrap scrollbar-hide">
+<div class="flex items-center gap-xs">
+<span class="font-label-caps text-on-surface-variant opacity-60">화자:</span>
+<span class="font-label-caps font-bold">3명</span>
+</div>
+<div class="grid-line-y h-4"></div>
+<div class="flex items-center gap-xs">
+<span class="font-label-caps text-on-surface-variant opacity-60">정확도:</span>
+<span class="font-label-caps font-bold text-primary">98.4%</span>
+</div>
+<div class="grid-line-y h-4"></div>
+<div class="flex items-center gap-xs">
+<span class="font-label-caps text-on-surface-variant opacity-60">언어:</span>
+<span class="font-label-caps font-bold">한국어 (KR)</span>
+</div>
+<div class="grid-line-y h-4"></div>
+<div class="flex items-center gap-xs">
+<span class="font-label-caps text-on-surface-variant opacity-60">포맷:</span>
+<span class="font-label-caps font-bold">WAV / 48kHz</span>
+</div>
+</div>
+<!-- Structured Transcription Stream -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-lg">
+<div class="max-w-[1000px] mx-auto border-l border-r border-outline-variant/10 bg-white">
+<!-- Segment Group -->
+<div class="border-b border-outline-variant/10 flex hover:bg-surface-container-low/30 transition-colors">
+<div class="w-24 p-md border-r border-outline-variant/10 flex flex-col gap-xs shrink-0">
+<span class="font-mono-data text-[10px] text-outline">00:00:00</span>
+<div class="bg-primary/10 px-xs py-[2px] rounded">
+<span class="font-label-caps text-[9px] text-primary font-bold">SPEAKER A</span>
+</div>
+</div>
+<div class="flex-1 p-md">
+<p class="font-body-reading text-body-reading leading-relaxed text-on-surface">안녕하십니까, 오늘 주간 회의를 시작하겠습니다. 먼저 지난 분기 실적 보고부터 진행하도록 하겠습니다. 현재 데이터에 따르면 전반적으로 긍정적인 지표를 보이고 있습니다.</p>
+</div>
+</div>
+<!-- Segment Group -->
+<div class="border-b border-outline-variant/10 flex hover:bg-surface-container-low/30 transition-colors">
+<div class="w-24 p-md border-r border-outline-variant/10 flex flex-col gap-xs shrink-0">
+<span class="font-mono-data text-[10px] text-outline">00:00:45</span>
+<div class="bg-secondary/10 px-xs py-[2px] rounded">
+<span class="font-label-caps text-[9px] text-secondary font-bold">SPEAKER B</span>
+</div>
+</div>
+<div class="flex-1 p-md">
+<p class="font-body-reading text-body-reading leading-relaxed text-on-surface">네, 확인했습니다. 하지만 마케팅 팀에서는 일부 지역에서의 전환율이 기대치에 미치지 못하고 있다는 점을 발견했습니다. 이에 대한 상세 분석이 필요해 보입니다.</p>
+</div>
+</div>
+<!-- Active Recording Segment -->
+<div class="border-b border-outline-variant/10 flex bg-primary/5">
+<div class="w-24 p-md border-r border-outline-variant/10 flex flex-col gap-xs shrink-0">
+<span class="font-mono-data text-[10px] text-primary">00:42:10</span>
+<div class="bg-tertiary/10 px-xs py-[2px] rounded">
+<span class="font-label-caps text-[9px] text-tertiary font-bold">SPEAKER C</span>
+</div>
+</div>
+<div class="flex-1 p-md relative">
+<p class="font-body-reading text-body-reading leading-relaxed text-on-surface/80">실시간 전사 중...</p>
+<div class="absolute bottom-md left-md right-md flex gap-xs mt-sm items-end h-8">
+<div class="w-1 bg-primary/40 rounded-full h-2"></div>
+<div class="w-1 bg-primary/60 rounded-full h-5"></div>
+<div class="w-1 bg-primary rounded-full h-8"></div>
+<div class="w-1 bg-primary/70 rounded-full h-4"></div>
+<div class="w-1 bg-primary/30 rounded-full h-2"></div>
+</div>
+</div>
+</div>
+<!-- Empty State Filler Grid -->
+<div class="h-32 border-b border-outline-variant/5 bg-[radial-gradient(#717786_0.5px,transparent_0.5px)] [background-size:16px_16px] opacity-10"></div>
+</div>
+</div>
+<!-- Bottom Controller Shell (Authority: JSON Implementation) -->
+<div class="fixed bottom-lg left-1/2 -translate-x-1/2 rounded-xl w-fit min-w-[400px] bg-surface/70 backdrop-blur-3xl border border-white/10 shadow-2xl flex justify-center items-center gap-xl px-xl py-md z-50">
+<button class="flex flex-col items-center gap-xs text-on-surface-variant p-md hover:bg-on-surface/10 rounded-full transition-all group">
+<span class="material-symbols-outlined text-[24px] text-secondary" data-icon="fiber_manual_record" style="font-variation-settings: 'FILL' 1;">fiber_manual_record</span>
+<span class="font-label-caps text-[10px]">Record</span>
+</button>
+<button class="flex flex-col items-center gap-xs text-on-surface-variant p-md hover:bg-on-surface/10 rounded-full transition-all">
+<span class="material-symbols-outlined text-[24px]" data-icon="pause">pause</span>
+<span class="font-label-caps text-[10px]">Pause</span>
+</button>
+<button class="flex flex-col items-center gap-xs bg-secondary text-on-secondary rounded-full p-md hover:opacity-90 active:scale-90 duration-200">
+<span class="material-symbols-outlined text-[24px]" data-icon="stop" style="font-variation-settings: 'FILL' 1;">stop</span>
+<span class="font-label-caps text-[10px]">Stop</span>
+</button>
+</div>
+<!-- Metadata Sidebar (Right-side IDE style) -->
+<div class="fixed right-0 top-16 bottom-0 w-64 border-l border-outline-variant/10 bg-surface/30 backdrop-blur-sm hidden xl:flex flex-col">
+<div class="p-md border-b border-outline-variant/10">
+<h3 class="font-label-caps text-[11px] text-outline font-bold uppercase tracking-wider">주요 키워드</h3>
+</div>
+<div class="p-md flex flex-wrap gap-xs">
+<span class="px-xs py-[2px] bg-white border border-outline-variant/20 rounded text-[10px] font-mono-data">#주간회의</span>
+<span class="px-xs py-[2px] bg-white border border-outline-variant/20 rounded text-[10px] font-mono-data">#실적보고</span>
+<span class="px-xs py-[2px] bg-white border border-outline-variant/20 rounded text-[10px] font-mono-data">#마케팅</span>
+<span class="px-xs py-[2px] bg-white border border-outline-variant/20 rounded text-[10px] font-mono-data">#전환율</span>
+</div>
+<div class="p-md border-b border-t border-outline-variant/10 mt-md">
+<h3 class="font-label-caps text-[11px] text-outline font-bold uppercase tracking-wider">자동 요약</h3>
+</div>
+<div class="p-md flex-1 overflow-y-auto custom-scrollbar">
+<ul class="flex flex-col gap-sm">
+<li class="flex gap-sm">
+<div class="w-1 bg-primary shrink-0"></div>
+<p class="font-body-ui text-[12px] leading-snug">지난 분기 실적은 전반적으로 긍정적인 흐름을 유지함.</p>
+</li>
+<li class="flex gap-sm">
+<div class="w-1 bg-secondary shrink-0"></div>
+<p class="font-body-ui text-[12px] leading-snug">마케팅 팀에서 특정 지역 전환율 하락에 대한 우려 제기.</p>
+</li>
+</ul>
+</div>
+<!-- Interactive Visualizer -->
+<div class="h-32 bg-on-surface/5 flex items-center justify-center p-md">
+<div class="w-full h-full border border-outline-variant/20 rounded flex items-center justify-center relative overflow-hidden bg-white">
+<div class="absolute inset-0 opacity-10 bg-[linear-gradient(90deg,transparent_20%,rgba(0,0,0,0.1)_21%,rgba(0,0,0,0.1)_22%,transparent_23%)] [background-size:20px_100%]"></div>
+<canvas class="w-full h-12" id="mini-waveform"></canvas>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple waveform animation for the mini-visualizer
+        const canvas = document.getElementById('mini-waveform');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            let animationFrame;
+
+            function resize() {
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height / 2);
+
+                const time = Date.now() / 1000;
+                for (let x = 0; x < canvas.width; x++) {
+                    const y = (canvas.height / 2) + Math.sin(x * 0.05 + time * 5) * 10 * Math.sin(time * 0.5);
+                    ctx.lineTo(x, y);
+                }
+
+                ctx.strokeStyle = '#0058bc';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                animationFrame = requestAnimationFrame(draw);
+            }
+
+            window.addEventListener('resize', resize);
+            resize();
+            draw();
+        }
+    </script>
+</body></html>

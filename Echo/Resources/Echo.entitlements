@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Echo — entitlements.
+  개인용 권장 구성: App Sandbox OFF (Core Audio 프로세스 탭/애그리게이트 장치가 샌드박스와 충돌).
+  TCC가 여전히 마이크·시스템오디오·화면녹화를 보호하므로 비샌드박스 추가 entitlement 불필요.
+
+  ▼ 만약 App Store 배포 위해 샌드박스를 켠다면, 아래 키를 활성화:
+  <key>com.apple.security.app-sandbox</key><true/>
+  <key>com.apple.security.device.audio-input</key><true/>   (마이크)
+  단, 시스템오디오 탭은 샌드박스에서 제약이 크므로 캡처 경로 재검토 필요.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+</dict>
+</plist>
