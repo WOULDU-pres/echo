@@ -194,34 +194,25 @@ struct PlaybackBar: View {
         }
     }
 
-    /// 글래스모피즘 패널: "회색 머티리얼"이 아니라 빛이 통과하는 투명한 유리 알약(pill).
-    /// 가장 얇은 프로스트 블러 + 위에서 빛이 닿는 강한 화이트 sheen(회색기 제거) +
-    /// 또렷한 유리 테두리 하이라이트 + 떠 있는 듯한 그림자.
+    /// 글래스 패널(평평하게): 입체감 없이 투명한 프로스트 유리만.
+    /// 가장 얇은 프로스트 블러 + 회색기만 살짝 덜어주는 균일한 화이트 + 얇은 유리 테두리.
+    /// 그림자·광택 그라데이션·베벨 없음(떠 있는 듯한 입체감 제거).
     private var glassPanel: some View {
         let shape = Capsule(style: .continuous)
         return shape
-            .fill(.ultraThinMaterial)                       // 가장 투명한 프로스트(뒤 콘텐츠가 비침)
+            .fill(.ultraThinMaterial)                       // 뒤가 비치는 투명 프로스트
             .overlay {
-                // 위→아래 화이트 sheen: 유리에 빛이 닿은 듯 밝게 떠서 '회색 슬랩'이 아니게.
-                shape.fill(
-                    LinearGradient(
-                        colors: [.white.opacity(0.55), .white.opacity(0.06)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                )
+                // 균일한 옅은 화이트 — 방향성 없는 평평한 톤(회색 슬랩 방지).
+                shape.fill(.white.opacity(0.12))
             }
             .overlay {
-                // 유리의 핵심 신호: 또렷한 가장자리 하이라이트(위쪽이 가장 밝게 빛을 받음).
-                shape.strokeBorder(
-                    LinearGradient(
-                        colors: [.white.opacity(0.95), .white.opacity(0.30), .white.opacity(0.55)],
-                        startPoint: .top, endPoint: .bottom
-                    ),
-                    lineWidth: 1.2
-                )
+                // 얇고 균일한 유리 가장자리(하이라이트·베벨 없음 → 평평).
+                shape.strokeBorder(.white.opacity(0.5), lineWidth: 1)
             }
-            .shadow(color: .black.opacity(0.14), radius: 24, y: 12)  // 본문 위에 떠 있는 깊이
-            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)    // 가장자리 또렷함
+            .overlay {
+                // 밝은 배경에서 윤곽만 살짝 잡아주는 중립 헤어라인.
+                shape.strokeBorder(Theme.Palette.outlineVariant.opacity(0.25), lineWidth: 0.5)
+            }
     }
 
     private func controlButton(_ icon: String, size: CGFloat, _ action: @escaping () -> Void) -> some View {
