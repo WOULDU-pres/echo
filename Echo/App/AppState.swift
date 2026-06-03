@@ -88,6 +88,9 @@ final class AppState {
     /// 목록 파일 로드 실패(손상) 시 1회 경고. RootView가 alert로 표시 후 nil로 비운다.
     var loadWarning: String?
 
+    /// AI 교정·정리본 실행기. 버튼에서 `claude -p`로 echo-fix 스킬을 구동한다.
+    var aiFix = ClaudeFixRunner()
+
     /// 단일 선택 시 그 녹음(detail 표시용). 0개 또는 여러 개면 nil.
     var selectedRecording: Recording? {
         guard selection.count == 1, let id = selection.first else { return nil }
@@ -132,6 +135,24 @@ final class AppState {
     }
 
     private func persist() { try? store.save(recordings) }
+
+    /// claude -p(echo-fix)가 recordings.json을 고친 뒤 디스크에서 다시 읽어 UI를 갱신한다.
+    /// 선택은 유지하되, 대상 녹음이 사라졌으면 첫 항목으로.
+    func reloadFromDisk() {
+        guard let loaded = try? store.load() else { return }
+        recordings = loaded
+        if let sel = selection.first, !recordings.contains(where: { $0.id == sel }) {
+            selection = recordings.first.map { [$0.id] } ?? []
+        } else if selection.isEmpty, let first = recordings.first {
+            selection = [first.id]
+        }
+    }
+
+    /// 버튼 액션: `claude -p`로 echo-fix 스킬을 실행해 전체 전사 교정 + 정리본 생성.
+    /// 완료되면 디스크에서 다시 읽어 교정·정리본을 화면에 반영한다.
+    func runAIFix() {
+        aiFix.run { [weak self] in self?.reloadFromDisk() }
+    }
 
     // MARK: - 파생 상태
 
@@ -568,3 +589,105 @@ extension AppState {
     }
 }
 #endif
+
+/// 앱 버튼에서 `claude -p`로 echo-fix 스킬을 실행해 전사 교정 + 정리본을 생성하는 실행기.
+/// 앱이 비(非)샌드박스라 외부 `claude` 바이너리를 `Process`로 직접 구동한다.
+@MainActor
+@Observable
+final class ClaudeFixRunner {
+    enum Phase: Equatable { case idle, running, done, failed(String) }
+    private(set) var phase: Phase = .idle
+    /// 실행 로그 꼬리(진행 표시용).
+    private(set) var log: String = ""
+    private var process: Process?
+
+    var isRunning: Bool { phase == .running }
+
+    /// echo-fix를 구동할 프롬프트. 파라미터를 못박아 질문 없이 끝까지 진행시킨다.
+    private static let fixPrompt = """
+    echo-fix 스킬을 사용해 ~/Library/Application Support/Echo/recordings.json 의 모든 녹음 전사를 \
+    '다듬기' 수준으로 자연스럽게 교정하고, 각 녹음의 정리본(전체 맥락·흐름, 시간순 타임라인, 결론)도 \
+    생성해서 파일에 반영해줘. 강도=다듬기, 불명확=추론 후 보고. 사용자에게 질문하지 말고 끝까지 진행해.
+    """
+
+    /// claude 실행 파일 후보 경로(설치 위치가 다를 수 있어 순서대로 탐색).
+    private func resolveClaude() -> String? {
+        let home = NSHomeDirectory()
+        let candidates = [
+            "\(home)/.local/bin/claude",
+            "/opt/homebrew/bin/claude",
+            "/usr/local/bin/claude",
+            "/Applications/cmux.app/Contents/Resources/bin/claude",
+        ]
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    func run(onFinish: @escaping @MainActor () -> Void) {
+        guard !isRunning else { return }
+        guard let claude = resolveClaude() else {
+            phase = .failed("claude 명령을 찾지 못했습니다 (~/.local/bin/claude 등을 확인하세요).")
+            return
+        }
+        phase = .running
+        log = "AI 교정·정리본 생성을 시작합니다… (녹음이 많으면 몇 분 걸릴 수 있어요)\n\n"
+
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: claude)
+        p.arguments = ["-p", Self.fixPrompt, "--dangerously-skip-permissions"]
+        p.currentDirectoryURL = URL(fileURLWithPath: NSHomeDirectory())
+        var env = ProcessInfo.processInfo.environment
+        let extra = "\(NSHomeDirectory())/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+        env["PATH"] = extra + ":" + (env["PATH"] ?? "")
+        p.environment = env
+
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = pipe
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] h in
+            let d = h.availableData
+            guard !d.isEmpty, let s = String(data: d, encoding: .utf8) else { return }
+            Task { @MainActor in
+                guard let self else { return }
+                self.log += s
+                if self.log.count > 6000 { self.log = "…\n" + String(self.log.suffix(6000)) }
+            }
+        }
+        p.terminationHandler = { [weak self] proc in
+            let status = proc.terminationStatus
+            Task { @MainActor in
+                guard let self else { return }
+                pipe.fileHandleForReading.readabilityHandler = nil
+                self.process = nil
+                if status == 0 {
+                    self.phase = .done
+                    self.log += "\n\n✅ 완료. 교정·정리본을 반영했습니다."
+                    onFinish()
+                } else if status == 15 || status == 2 {   // SIGTERM/Interrupt = 취소
+                    self.phase = .idle
+                } else {
+                    self.phase = .failed("종료 코드 \(status). 아래 로그를 확인하세요.")
+                }
+            }
+        }
+        do {
+            try p.run()
+            process = p
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
+    /// 실행 중단.
+    func cancel() {
+        process?.terminate()
+        process = nil
+        phase = .idle
+    }
+
+    /// 결과 패널을 닫을 때 상태 초기화(실행 중이면 무시).
+    func reset() {
+        guard !isRunning else { return }
+        phase = .idle
+        log = ""
+    }
+}

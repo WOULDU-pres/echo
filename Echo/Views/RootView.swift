@@ -9,6 +9,8 @@ struct RootView: View {
     @State private var isDropTargeted = false
     @State private var showProgress = false
     @State private var importing = false
+    /// AI 교정·정리본 진행 시트 표시.
+    @State private var showAIFix = false
 
     var body: some View {
         NavigationSplitView {
@@ -29,6 +31,16 @@ struct RootView: View {
                 } isTargeted: { isDropTargeted = $0 }
                 .overlay { if isDropTargeted { DropOverlay() } }
                 .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            state.runAIFix()
+                            showAIFix = true
+                        } label: {
+                            Label("AI 교정·정리본", systemImage: "sparkles")
+                        }
+                        .help("claude로 모든 녹음 전사를 자연스럽게 교정하고 정리본을 생성합니다")
+                        .disabled(state.aiFix.isRunning || state.recordings.isEmpty)
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             importing = true
@@ -63,6 +75,9 @@ struct RootView: View {
         .sheet(isPresented: $showProgress) {
             TranscriptionProgressSheet(onClose: { showProgress = false })
         }
+        .sheet(isPresented: $showAIFix) {
+            AIFixSheet(runner: state.aiFix, onClose: { showAIFix = false })
+        }
         // 녹음 유무와 무관하게 항상 파일 추가 가능(툴바 '오디오 추가'). 드래그앤드롭과 동일 경로.
         .fileImporter(isPresented: $importing, allowedContentTypes: [.audio], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result { state.enqueueFiles(urls) }
@@ -85,6 +100,75 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: state.activeJobCount > 0 && !showProgress)
+    }
+}
+
+/// AI 교정·정리본 진행 시트: claude(echo-fix) 실행 상태 + 로그 + 중단/닫기.
+struct AIFixSheet: View {
+    let runner: ClaudeFixRunner
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            HStack(spacing: Theme.Spacing.sm) {
+                Image(systemName: "sparkles").foregroundStyle(Theme.Palette.primary)
+                Text("AI 교정·정리본").font(Theme.Font.titleSm)
+                Spacer()
+                statusBadge
+            }
+            Text("claude가 echo-fix 스킬로 모든 녹음을 자연스럽게 교정하고 정리본(맥락·타임라인·결론)을 만듭니다. 끝나면 자동으로 화면에 반영됩니다.")
+                .font(Theme.Font.bodyUI)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ScrollView {
+                Text(runner.log.isEmpty ? "대기 중…" : runner.log)
+                    .font(Theme.Font.monoData)
+                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(height: 260)
+            .padding(Theme.Spacing.sm)
+            .background(Theme.Palette.surfaceLow, in: RoundedRectangle(cornerRadius: Theme.Radius.lg))
+
+            HStack {
+                if case .failed(let msg) = runner.phase {
+                    Label(msg, systemImage: "exclamationmark.triangle.fill")
+                        .font(Theme.Font.bodyUI)
+                        .foregroundStyle(Theme.Palette.secondary)
+                        .lineLimit(2)
+                }
+                Spacer()
+                if runner.isRunning {
+                    Button("중단", role: .destructive) { runner.cancel() }
+                } else {
+                    Button("닫기") { runner.reset(); onClose() }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
+        .padding(Theme.Spacing.lg)
+        .frame(width: 520)
+        .interactiveDismissDisabled(runner.isRunning)
+    }
+
+    @ViewBuilder private var statusBadge: some View {
+        switch runner.phase {
+        case .running:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("진행 중").font(Theme.Font.monoData).foregroundStyle(Theme.Palette.onSurfaceVariant)
+            }
+        case .done:
+            Label("완료", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(Theme.Palette.primary).font(Theme.Font.bodyUI)
+        case .failed:
+            Label("실패", systemImage: "xmark.circle.fill")
+                .foregroundStyle(Theme.Palette.secondary).font(Theme.Font.bodyUI)
+        case .idle:
+            EmptyView()
+        }
     }
 }
 
